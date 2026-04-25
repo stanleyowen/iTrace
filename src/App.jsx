@@ -56,6 +56,19 @@ function normalizeUnique(usernames) {
   return [...new Set(usernames.map((name) => name.toLowerCase().trim()))]
 }
 
+function buildResult(following, followers) {
+  const followersSet = new Set(followers)
+  const notFollowingBack = following
+    .filter((username) => !followersSet.has(username))
+    .sort((a, b) => a.localeCompare(b))
+
+  return {
+    totalFollowing: following.length,
+    totalFollowers: followers.length,
+    notFollowingBack,
+  }
+}
+
 function App() {
   const [followingFile, setFollowingFile] = useState(null)
   const [followersFile, setFollowersFile] = useState(null)
@@ -100,38 +113,33 @@ function App() {
     })
   }
 
-  async function handleCompare(event) {
-    event.preventDefault()
-    setError('')
-    setResult(null)
-
+  async function handleCompareFiles() {
     if (!followingFile || !followersFile) {
       setError('Please upload both files first.')
       return
     }
 
+    const [followingText, followersText] = await Promise.all([
+      followingFile.text(),
+      followersFile.text(),
+    ])
+
+    const followingPayload = parseJsonText(followingText, 'Following file')
+    const followersPayload = parseJsonText(followersText, 'Followers file')
+
+    const following = normalizeUnique(extractUsernames(followingPayload))
+    const followers = normalizeUnique(extractUsernames(followersPayload))
+    setResult(buildResult(following, followers))
+  }
+
+  async function handleCompare(event) {
+    event.preventDefault()
+    setError('')
+    setResult(null)
     setLoading(true)
+
     try {
-      const [followingText, followersText] = await Promise.all([
-        followingFile.text(),
-        followersFile.text(),
-      ])
-
-      const followingPayload = parseJsonText(followingText, 'Following file')
-      const followersPayload = parseJsonText(followersText, 'Followers file')
-
-      const following = normalizeUnique(extractUsernames(followingPayload))
-      const followers = normalizeUnique(extractUsernames(followersPayload))
-      const followersSet = new Set(followers)
-      const notFollowingBack = following
-        .filter((username) => !followersSet.has(username))
-        .sort((a, b) => a.localeCompare(b))
-
-      setResult({
-        totalFollowing: following.length,
-        totalFollowers: followers.length,
-        notFollowingBack,
-      })
+      await handleCompareFiles()
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -145,11 +153,7 @@ function App() {
         <p className="eyebrow">PRIVATE • LOCAL • SIMPLE</p>
         <h1>Instagram Followback Checker</h1>
         <p className="subtitle">
-          Upload your Instagram export files and instantly see who you follow
-          that is not following you back.
-        </p>
-        <p className="subtitle muted">
-          Everything runs in your browser. No backend. No account login.
+          Compare your following vs followers using Instagram JSON exports.
         </p>
       </header>
 
@@ -193,9 +197,7 @@ function App() {
             <input
               type="file"
               accept="application/json,.json"
-              onChange={(event) =>
-                setFollowingFile(event.target.files?.[0] ?? null)
-              }
+              onChange={(event) => setFollowingFile(event.target.files?.[0] ?? null)}
             />
             <small>{followingFile?.name || 'No file selected'}</small>
           </label>
@@ -205,9 +207,7 @@ function App() {
             <input
               type="file"
               accept="application/json,.json"
-              onChange={(event) =>
-                setFollowersFile(event.target.files?.[0] ?? null)
-              }
+              onChange={(event) => setFollowersFile(event.target.files?.[0] ?? null)}
             />
             <small>{followersFile?.name || 'No file selected'}</small>
           </label>
