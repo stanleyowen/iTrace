@@ -742,6 +742,24 @@ function App() {
         <p className="subtitle">
           Compare following vs followers and find who does not follow back.
         </p>
+        <div className="hero-links">
+          <a
+            className="github-link"
+            href="https://github.com/stanleyowen/iTrace"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open iTrace GitHub repository"
+            title="GitHub repository"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M12 2C6.477 2 2 6.484 2 12.017c0 4.426 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.009-.866-.014-1.699-2.782.605-3.369-1.344-3.369-1.344-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.004.071 1.532 1.032 1.532 1.032.893 1.532 2.341 1.09 2.91.834.09-.647.35-1.09.636-1.341-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.254-.446-1.272.098-2.651 0 0 .84-.269 2.75 1.027A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.748-1.027 2.748-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.748 0 .268.18.58.688.481A10.019 10.019 0 0 0 22 12.017C22 6.484 17.523 2 12 2Z"
+                fill="currentColor"
+              />
+            </svg>
+            <span>GitHub</span>
+          </a>
+        </div>
       </header>
 
       <section className="card mode-switch">

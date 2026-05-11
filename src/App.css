@@ -29,6 +29,38 @@ h1 {
   color: #cbd5e1;
 }
 
+.hero-links {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1200;
+}
+
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.56);
+  color: #e2e8f0;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.github-link:hover {
+  border-color: rgba(216, 180, 254, 0.55);
+  color: #f8fafc;
+  background: rgba(76, 29, 149, 0.22);
+}
+
+.github-link svg {
+  width: 16px;
+  height: 16px;
+}
+
 .subtitle.muted {
   margin-top: 8px;
   color: #94a3b8;
