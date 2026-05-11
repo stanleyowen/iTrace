@@ -1,10 +1,11 @@
-# iTrace - Instagram Followback Checker
+# iTrace - Followback Checker
 
-This project compares your Instagram **following** and **followers** and shows who is not following you back.
+This project compares **following** and **followers** and shows who is not following you back.
 
 ## Mode
 
-Upload Instagram export JSON files in the browser and compare **following** vs **followers** locally.
+1. **Offline mode (Instagram):** Upload Instagram export JSON files and compare locally.
+2. **Online mode (Instagram web console):** Run a throttled script in Instagram DevTools console to inject an in-page iTrace overlay for followers/following, not-follow-back, and unfollow actions.
 
 ## Run locally
 
