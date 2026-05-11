@@ -188,13 +188,13 @@ function App() {
       "#" + panelId + " .it-action-btn.warn{border-color:rgba(252,165,165,.45);background:rgba(127,29,29,.34);color:#fecaca}",
       "#" + panelId + " .it-action-btn:disabled{opacity:.55;cursor:not-allowed}",
       "#" + panelId + " .it-list{max-height:290px;overflow:auto;display:grid;gap:6px}",
-      "#" + panelId + " .it-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;",
+      "#" + panelId + " .it-item{display:flex;align-items:center;justify-content:flex-start;gap:10px;padding:9px 10px;",
       "border-radius:10px;border:1px solid rgba(148,163,184,.2);background:rgba(15,23,42,.52)}",
-      "#" + panelId + " .it-item a{color:#d8b4fe;text-decoration:none;font-weight:600;font-size:13px}",
+      "#" + panelId + " .it-item a{color:#d8b4fe;text-decoration:none;font-weight:600;font-size:13px;flex:1;min-width:0}",
       "#" + panelId + " .it-badge{font-size:10px;color:#86efac;background:rgba(74,222,128,.16);padding:2px 7px;border-radius:999px;",
       "border:1px solid rgba(134,239,172,.4)}",
-      "#" + panelId + " .it-pill-wrap{display:flex;gap:6px;align-items:center}",
-      "#" + panelId + " .it-select{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#cbd5e1}",
+      "#" + panelId + " .it-pill-wrap{display:flex;gap:6px;align-items:center;flex-shrink:0}",
+      "#" + panelId + " .it-select{display:inline-flex;align-items:center;justify-content:center}",
       "#" + panelId + " .it-select input{width:12px;height:12px;accent-color:#c084fc;cursor:pointer}",
       "#" + panelId + " .it-mini-btn{border:1px solid rgba(252,165,165,.45);background:rgba(127,29,29,.34);color:#fecaca;border-radius:8px;padding:4px 8px;font-size:10px;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .15s ease}",
       "#" + panelId + " .it-item:hover .it-mini-btn{opacity:1;pointer-events:auto}",
@@ -402,18 +402,23 @@ function App() {
         const canUnfollow = activeKey === "notFollowBack" && usernameToId.has(username);
         const alreadyUnfollowed = unfollowedSet.has(username);
         const checked = selectedSet.has(username) ? " checked" : "";
-        const rightSide = canUnfollow
+        if (canUnfollow && !alreadyUnfollowed) {
+          item.setAttribute("data-row-select", username);
+        }
+
+        const controls = canUnfollow
           ? "<span class='it-pill-wrap'>"
-              + (isPrivate ? "<span class='it-badge'>private</span>" : "")
-              + "<label class='it-select'><input type='checkbox' data-select='" + username + "'" + checked + " /></label>"
               + (alreadyUnfollowed
                 ? "<span class='it-badge'>done</span>"
                 : "<button class='it-mini-btn' data-unfollow='" + username + "' type='button'>Unfollow</button>")
+              + "<label class='it-select'><input type='checkbox' data-select='" + username + "'" + checked + " /></label>"
             + "</span>"
-          : (isPrivate ? "<span class='it-badge'>private</span>" : "");
+          : "";
+        const trailingBadge = isPrivate ? "<span class='it-badge'>private</span>" : "";
         item.innerHTML = ""
+          + controls
           + "<a href='https://www.instagram.com/" + username + "/' target='_blank' rel='noreferrer'>@" + username + "</a>"
-          + rightSide;
+          + trailingBadge;
         fragment.appendChild(item);
       });
       listEl.appendChild(fragment);
@@ -435,6 +440,30 @@ function App() {
           } else {
             selectedSet.delete(username);
           }
+          renderActions();
+        });
+      });
+
+      listEl.querySelectorAll(".it-item[data-row-select]").forEach((row) => {
+        row.addEventListener("click", (event) => {
+          const target = event.target instanceof Element ? event.target : null;
+          if (!target) return;
+          if (
+            target.closest("a") ||
+            target.closest("[data-unfollow]") ||
+            target.closest("[data-select]")
+          ) {
+            return;
+          }
+
+          const username = row.getAttribute("data-row-select");
+          if (!username) return;
+          if (selectedSet.has(username)) {
+            selectedSet.delete(username);
+          } else {
+            selectedSet.add(username);
+          }
+          renderList();
           renderActions();
         });
       });
