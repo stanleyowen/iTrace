@@ -5,7 +5,7 @@ This project compares **following** and **followers** and shows who is not follo
 ## Mode
 
 1. **Offline mode (Instagram):** Upload Instagram export JSON files and compare locally.
-2. **Online mode (Instagram web console):** Run a throttled fetch script in Instagram DevTools console to collect followers/following, then paste JSON into iTrace for comparison.
+2. **Online mode (Instagram web console):** Run a throttled script in Instagram DevTools console to inject an in-page iTrace overlay for followers/following, not-follow-back, and unfollow actions.
 
 ## Run locally
 

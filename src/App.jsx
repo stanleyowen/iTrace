@@ -75,34 +75,14 @@ function buildResult(following, followers, platform, account) {
   }
 }
 
-function extractOnlineComparePayload(payload) {
-  if (!payload || typeof payload !== 'object') {
-    throw new Error('Online payload must be a JSON object.')
-  }
-
-  const followers = normalizeUnique(extractUsernames(payload.followers ?? []))
-  const following = normalizeUnique(extractUsernames(payload.following ?? []))
-  const account =
-    typeof payload.account === 'string' && payload.account.trim()
-      ? payload.account.trim().toLowerCase()
-      : 'logged in user'
-
-  if (followers.length === 0 && following.length === 0) {
-    throw new Error('No followers/following found. Run the full console script first.')
-  }
-
-  return { followers, following, account }
-}
-
 function profileUrl(username) {
   return `https://www.instagram.com/${username}/`
 }
 
 function App() {
-  const [mode, setMode] = useState('offline')
+  const [mode, setMode] = useState('online')
   const [followingFile, setFollowingFile] = useState(null)
   const [followersFile, setFollowersFile] = useState(null)
-  const [onlinePayloadText, setOnlinePayloadText] = useState('')
   const [onlineDelayMs, setOnlineDelayMs] = useState('1500')
   const [onlinePauseAfterFiveMs, setOnlinePauseAfterFiveMs] = useState('10000')
   const [unfollowDelayMs, setUnfollowDelayMs] = useState('4000')
@@ -202,7 +182,7 @@ function App() {
       "border-radius:9px;padding:7px 6px;font-size:11px;cursor:pointer}",
       "#" + panelId + " .it-tab.active{border-color:rgba(216,180,254,.6);background:linear-gradient(135deg,#c084fc,#a855f7);color:#fff}",
       "#" + panelId + " .it-search{width:100%;padding:9px 10px;border-radius:10px;border:1px solid rgba(148,163,184,.34);",
-      "background:rgba(15,23,42,.54);color:#e2e8f0;margin-bottom:8px}",
+      "background:rgba(15,23,42,.54);color:#e2e8f0;margin-bottom:8px;font-size:12px}",
       "#" + panelId + " .it-actions{display:flex;gap:8px;margin-bottom:8px}",
       "#" + panelId + " .it-action-btn{flex:1;border:1px solid rgba(148,163,184,.32);background:rgba(15,23,42,.56);color:#e2e8f0;border-radius:9px;padding:7px 8px;font-size:11px;cursor:pointer}",
       "#" + panelId + " .it-action-btn.warn{border-color:rgba(252,165,165,.45);background:rgba(127,29,29,.34);color:#fecaca}",
@@ -214,7 +194,10 @@ function App() {
       "#" + panelId + " .it-badge{font-size:10px;color:#86efac;background:rgba(74,222,128,.16);padding:2px 7px;border-radius:999px;",
       "border:1px solid rgba(134,239,172,.4)}",
       "#" + panelId + " .it-pill-wrap{display:flex;gap:6px;align-items:center}",
-      "#" + panelId + " .it-mini-btn{border:1px solid rgba(252,165,165,.45);background:rgba(127,29,29,.34);color:#fecaca;border-radius:8px;padding:4px 8px;font-size:10px;cursor:pointer}",
+      "#" + panelId + " .it-select{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#cbd5e1}",
+      "#" + panelId + " .it-select input{width:12px;height:12px;accent-color:#c084fc;cursor:pointer}",
+      "#" + panelId + " .it-mini-btn{border:1px solid rgba(252,165,165,.45);background:rgba(127,29,29,.34);color:#fecaca;border-radius:8px;padding:4px 8px;font-size:10px;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .15s ease}",
+      "#" + panelId + " .it-item:hover .it-mini-btn{opacity:1;pointer-events:auto}",
       "#" + panelId + " .it-mini-btn:disabled{opacity:.55;cursor:not-allowed}",
       "#" + panelId + " .it-footer{margin-top:8px;font-size:11px;color:#94a3b8}",
     ].join("");
@@ -280,7 +263,10 @@ function App() {
     const listEl = panel.querySelector(".it-list");
     const footerEl = panel.querySelector(".it-footer");
     const unfollowedSet = new Set();
+    const selectedSet = new Set();
+    let lastFilteredItems = [];
     let isUnfollowing = false;
+    let searchRaf = 0;
 
     statsEl.innerHTML = ""
       + "<div class='it-stat'><b>" + followers.length + "</b><span>Followers</span></div>"
@@ -317,7 +303,8 @@ function App() {
     }
 
     async function runUnfollow(usernames) {
-      if (isUnfollowing || usernames.length === 0) return;
+      const queue = [...new Set(usernames)];
+      if (isUnfollowing || queue.length === 0) return;
       const csrfToken = getCsrfToken();
       if (!csrfToken) {
         footerEl.textContent = "Missing csrftoken. Refresh Instagram and try again.";
@@ -325,7 +312,7 @@ function App() {
       }
 
       const approved = window.confirm(
-        "Unfollow " + usernames.length + " user(s)? This action cannot be undone."
+        "Unfollow " + queue.length + " user(s)? This action cannot be undone."
       );
       if (!approved) return;
 
@@ -335,7 +322,7 @@ function App() {
       let success = 0;
       const failed = [];
 
-      for (const username of usernames) {
+      for (const username of queue) {
         const userId = usernameToId.get(username);
         completed += 1;
 
@@ -345,16 +332,18 @@ function App() {
           try {
             await unfollowById(userId, csrfToken);
             unfollowedSet.add(username);
+            selectedSet.delete(username);
             success += 1;
           } catch {
+            selectedSet.delete(username);
             failed.push(username);
           }
         }
 
         footerEl.textContent =
-          "@" + payload.account + " • unfollow progress " + completed + "/" + usernames.length;
+          "@" + payload.account + " • unfollow progress " + completed + "/" + queue.length;
 
-        if (completed < usernames.length) {
+        if (completed < queue.length) {
           await sleep(unfollowDelayMs);
           if (completed % 5 === 0 && unfollowPauseAfterFiveMs > 0) {
             await sleep(unfollowPauseAfterFiveMs);
@@ -380,15 +369,15 @@ function App() {
 
     function renderTabs() {
       tabsEl.innerHTML = "";
-        tabs.forEach((tab) => {
+      tabs.forEach((tab) => {
         const button = document.createElement("button");
         button.className = "it-tab" + (tab.key === activeKey ? " active" : "");
         button.textContent = tab.label;
         button.addEventListener("click", () => {
           activeKey = tab.key;
           renderTabs();
-          renderActions();
           renderList();
+          renderActions();
         });
         tabsEl.appendChild(button);
       });
@@ -397,20 +386,26 @@ function App() {
     function renderList() {
       const keyword = String(searchEl.value || "").toLowerCase().trim();
       const selected = tabs.find((t) => t.key === activeKey) || tabs[0];
-      const items = keyword
+      const filteredItems = keyword
         ? selected.list.filter((u) => u.includes(keyword))
         : selected.list;
+      lastFilteredItems = filteredItems;
+      const renderLimit = keyword ? filteredItems.length : Math.min(filteredItems.length, 180);
+      const items = filteredItems.slice(0, renderLimit);
 
       listEl.innerHTML = "";
+      const fragment = document.createDocumentFragment();
       items.forEach((username) => {
         const item = document.createElement("div");
         item.className = "it-item";
         const isPrivate = privateSet.has(username);
         const canUnfollow = activeKey === "notFollowBack" && usernameToId.has(username);
         const alreadyUnfollowed = unfollowedSet.has(username);
+        const checked = selectedSet.has(username) ? " checked" : "";
         const rightSide = canUnfollow
           ? "<span class='it-pill-wrap'>"
               + (isPrivate ? "<span class='it-badge'>private</span>" : "")
+              + "<label class='it-select'><input type='checkbox' data-select='" + username + "'" + checked + " /></label>"
               + (alreadyUnfollowed
                 ? "<span class='it-badge'>done</span>"
                 : "<button class='it-mini-btn' data-unfollow='" + username + "' type='button'>Unfollow</button>")
@@ -419,8 +414,9 @@ function App() {
         item.innerHTML = ""
           + "<a href='https://www.instagram.com/" + username + "/' target='_blank' rel='noreferrer'>@" + username + "</a>"
           + rightSide;
-        listEl.appendChild(item);
+        fragment.appendChild(item);
       });
+      listEl.appendChild(fragment);
 
       listEl.querySelectorAll("[data-unfollow]").forEach((button) => {
         button.addEventListener("click", async () => {
@@ -430,8 +426,29 @@ function App() {
         });
       });
 
+      listEl.querySelectorAll("[data-select]").forEach((input) => {
+        input.addEventListener("change", (event) => {
+          const username = event.target.getAttribute("data-select");
+          if (!username) return;
+          if (event.target.checked) {
+            selectedSet.add(username);
+          } else {
+            selectedSet.delete(username);
+          }
+          renderActions();
+        });
+      });
+
       footerEl.textContent =
-        "@" + payload.account + " • showing " + items.length + " of " + selected.list.length;
+        "@" +
+        payload.account +
+        " • showing " +
+        items.length +
+        " of " +
+        selected.list.length +
+        " • selected " +
+        [...selectedSet].filter((username) => usernameToId.has(username) && !unfollowedSet.has(username)).length +
+        (renderLimit < filteredItems.length ? " • refine search for full list" : "");
     }
 
     function renderActions() {
@@ -440,26 +457,58 @@ function App() {
         return;
       }
 
-      const visibleCandidates = (tabs.find((t) => t.key === "notFollowBack")?.list || [])
+      const visibleCandidates = (lastFilteredItems || [])
+        .filter((username) => usernameToId.has(username) && !unfollowedSet.has(username));
+      const selectedCandidates = [...selectedSet]
         .filter((username) => usernameToId.has(username) && !unfollowedSet.has(username));
 
       actionsEl.innerHTML =
-        "<button class='it-action-btn warn' type='button' data-unfollow-visible>"
-          + "Unfollow visible (" + visibleCandidates.length + ")"
+        "<button class='it-action-btn' type='button' data-select-visible>"
+          + "Select visible (" + visibleCandidates.length + ")"
+        + "</button>"
+        + "<button class='it-action-btn' type='button' data-clear-selected>"
+          + "Clear selected (" + selectedCandidates.length + ")"
+        + "</button>"
+        + "<button class='it-action-btn warn' type='button' data-unfollow-visible>"
+          + "Unfollow selected (" + selectedCandidates.length + ")"
         + "</button>";
 
-      const button = actionsEl.querySelector("[data-unfollow-visible]");
-      if (!button) return;
-      button.disabled = isUnfollowing || visibleCandidates.length === 0;
-      button.addEventListener("click", async () => {
-        await runUnfollow(visibleCandidates);
+      const selectButton = actionsEl.querySelector("[data-select-visible]");
+      const clearButton = actionsEl.querySelector("[data-clear-selected]");
+      const unfollowButton = actionsEl.querySelector("[data-unfollow-visible]");
+      if (!selectButton || !clearButton || !unfollowButton) return;
+
+      selectButton.disabled = isUnfollowing || visibleCandidates.length === 0;
+      clearButton.disabled = isUnfollowing || selectedCandidates.length === 0;
+      unfollowButton.disabled = isUnfollowing || selectedCandidates.length === 0;
+
+      selectButton.addEventListener("click", () => {
+        visibleCandidates.forEach((username) => selectedSet.add(username));
+        renderActions();
+        renderList();
+      });
+
+      clearButton.addEventListener("click", () => {
+        selectedSet.clear();
+        renderActions();
+        renderList();
+      });
+
+      unfollowButton.addEventListener("click", async () => {
+        await runUnfollow(selectedCandidates);
       });
     }
 
-    searchEl.addEventListener("input", renderList);
+    searchEl.addEventListener("input", () => {
+      if (searchRaf) cancelAnimationFrame(searchRaf);
+      searchRaf = requestAnimationFrame(() => {
+        renderList();
+        renderActions();
+      });
+    });
     renderTabs();
-    renderActions();
     renderList();
+    renderActions();
   }
 
   async function fetchPage(type, params, retries = 3) {
@@ -588,12 +637,6 @@ function App() {
     setResult(buildResult(following, followers, 'instagram', 'your account'))
   }
 
-  async function handleCompareOnline() {
-    const payload = parseJsonText(onlinePayloadText, 'Online payload')
-    const { followers, following, account } = extractOnlineComparePayload(payload)
-    setResult(buildResult(following, followers, 'instagram', account))
-  }
-
   async function handleCompare(event) {
     event.preventDefault()
     setError('')
@@ -601,11 +644,7 @@ function App() {
     setLoading(true)
 
     try {
-      if (mode === 'offline') {
-        await handleCompareFiles()
-      } else {
-        await handleCompareOnline()
-      }
+      await handleCompareFiles()
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -626,17 +665,17 @@ function App() {
       <section className="card mode-switch">
         <button
           type="button"
+          className={mode === 'online' ? 'active' : ''}
+          onClick={() => handleModeChange('online')}
+        >
+          iTrace Online
+        </button>
+        <button
+          type="button"
           className={mode === 'offline' ? 'active' : ''}
           onClick={() => handleModeChange('offline')}
         >
           Offline mode
-        </button>
-        <button
-          type="button"
-          className={mode === 'online' ? 'active' : ''}
-          onClick={() => handleModeChange('online')}
-        >
-          Online mode
         </button>
       </section>
 
@@ -711,9 +750,8 @@ function App() {
             <h2>Instagram web console mode</h2>
             <p>
               Run a throttled script in Instagram console to fetch all followers/following,
-              inject a modern overlay UI directly on Instagram (including unfollow controls),
-              and optionally paste JSON below for iTrace compare. Delay settings here apply
-              before running the script.
+              then inject a modern overlay UI directly on Instagram (including multi-select
+              unfollow controls). Delay settings here apply before running the script.
             </p>
           </div>
 
@@ -769,28 +807,13 @@ function App() {
             <li>Open instagram.com and log in.</li>
             <li>Open DevTools Console.</li>
             <li>Copy and run this script to inject the iTrace overlay.</li>
-            <li>Paste output JSON into iTrace if you also want local compare.</li>
+            <li>Use the injected UI directly for search, selection, and unfollow.</li>
           </ol>
 
           <pre className="code-block">{onlineScript}</pre>
           <button type="button" onClick={handleCopyScript}>
             {copiedScript ? 'Copied' : 'Copy script'}
           </button>
-
-          <form onSubmit={handleCompare} className="form-card">
-            <label className="file-field">
-              <span>Paste iTrace payload JSON</span>
-              <textarea
-                className="payload-input"
-                value={onlinePayloadText}
-                onChange={(event) => setOnlinePayloadText(event.target.value)}
-                placeholder='{"account":"...","followers":["..."],"following":["..."]}'
-              />
-            </label>
-            <button type="submit" disabled={loading}>
-              {loading ? 'Checking...' : 'Check followback'}
-            </button>
-          </form>
         </section>
       )}
 
