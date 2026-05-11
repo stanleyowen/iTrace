@@ -172,8 +172,11 @@ function App() {
       "background:linear-gradient(145deg,rgba(129,140,248,.2),rgba(168,85,247,.14))}",
       "#" + panelId + " .it-title{font-size:14px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}",
       "#" + panelId + " .it-close{border:0;background:transparent;color:#cbd5e1;font-size:16px;cursor:pointer}",
+      "#" + panelId + " .it-loading{padding:12px 14px 14px}",
+      "#" + panelId + " .it-loading.hidden{display:none}",
       "#" + panelId + " .it-body{padding:12px 14px 14px}",
-      "#" + panelId + " .it-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px}",
+      "#" + panelId + " .it-body.hidden{display:none}",
+      "#" + panelId + " .it-stats{display:none}",
       "#" + panelId + " .it-stat{padding:8px;border-radius:10px;background:rgba(30,41,59,.5);border:1px solid rgba(148,163,184,.2)}",
       "#" + panelId + " .it-stat b{display:block;font-size:13px;color:#f8fafc}",
       "#" + panelId + " .it-stat span{font-size:10px;color:#94a3b8}",
@@ -188,25 +191,30 @@ function App() {
       "#" + panelId + " .it-action-btn.warn{border-color:rgba(252,165,165,.45);background:rgba(127,29,29,.34);color:#fecaca}",
       "#" + panelId + " .it-action-btn:disabled{opacity:.55;cursor:not-allowed}",
       "#" + panelId + " .it-list{max-height:290px;overflow:auto;display:grid;gap:6px}",
-      "#" + panelId + " .it-item{display:flex;align-items:center;justify-content:flex-start;gap:10px;padding:9px 10px;",
+      "#" + panelId + " .it-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;",
       "border-radius:10px;border:1px solid rgba(148,163,184,.2);background:rgba(15,23,42,.52)}",
-      "#" + panelId + " .it-item a{color:#d8b4fe;text-decoration:none;font-weight:600;font-size:13px;flex:1;min-width:0}",
+      "#" + panelId + " .it-main{display:flex;align-items:center;gap:6px;min-width:0;flex:1}",
+      "#" + panelId + " .it-item a{color:#d8b4fe;text-decoration:none;font-weight:600;font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
       "#" + panelId + " .it-badge{font-size:10px;color:#86efac;background:rgba(74,222,128,.16);padding:2px 7px;border-radius:999px;",
       "border:1px solid rgba(134,239,172,.4)}",
-      "#" + panelId + " .it-pill-wrap{display:flex;gap:6px;align-items:center;flex-shrink:0}",
+      "#" + panelId + " .it-pill-wrap{display:flex;gap:6px;align-items:center;flex-shrink:0;margin-left:8px}",
       "#" + panelId + " .it-select{display:inline-flex;align-items:center;justify-content:center}",
       "#" + panelId + " .it-select input{width:12px;height:12px;accent-color:#c084fc;cursor:pointer}",
       "#" + panelId + " .it-mini-btn{border:1px solid rgba(252,165,165,.45);background:rgba(127,29,29,.34);color:#fecaca;border-radius:8px;padding:4px 8px;font-size:10px;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .15s ease}",
       "#" + panelId + " .it-item:hover .it-mini-btn{opacity:1;pointer-events:auto}",
       "#" + panelId + " .it-mini-btn:disabled{opacity:.55;cursor:not-allowed}",
       "#" + panelId + " .it-footer{margin-top:8px;font-size:11px;color:#94a3b8}",
+      "#" + panelId + " .itp-track{height:8px;border-radius:999px;background:rgba(51,65,85,.65);overflow:hidden}",
+      "#" + panelId + " .itp-fill{height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,#c084fc,#818cf8);",
+      "box-shadow:0 0 14px rgba(192,132,252,.45);transition:width .28s ease}",
+      "#" + panelId + " .itp-text{margin-top:8px;font-size:11px;color:#cbd5e1}",
     ].join("");
     document.head.appendChild(style);
   }
 
   function ensurePanelShell() {
     const existing = document.getElementById(panelId);
-    if (existing) existing.remove();
+    if (existing) return existing;
 
     const panel = document.createElement("aside");
     panel.id = panelId;
@@ -215,7 +223,11 @@ function App() {
       + "  <div class='it-title'>iTrace Overlay</div>"
       + "  <button class='it-close' title='Close'>✕</button>"
       + "</div>"
-      + "<div class='it-body'>"
+      + "<div class='it-loading'>"
+      + "  <div class='itp-track'><div class='itp-fill'></div></div>"
+      + "  <div class='itp-text'>Preparing fetch...</div>"
+      + "</div>"
+      + "<div class='it-body hidden'>"
       + "  <div class='it-stats'></div>"
       + "  <div class='it-tabs'></div>"
       + "  <input class='it-search' placeholder='Search username...' />"
@@ -229,9 +241,34 @@ function App() {
     return panel;
   }
 
+  function setFetchProgress(percent, text) {
+    ensureUiStyles();
+    const panel = ensurePanelShell();
+    const loading = panel.querySelector(".it-loading");
+    const body = panel.querySelector(".it-body");
+    if (loading) loading.classList.remove("hidden");
+    if (body) body.classList.add("hidden");
+    const fill = panel.querySelector(".itp-fill");
+    const label = panel.querySelector(".itp-text");
+    const safe = Math.max(0, Math.min(100, Math.floor(percent)));
+    if (fill) fill.style.width = safe + "%";
+    if (label) label.textContent = text;
+  }
+
+  function removeFetchProgress() {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    const loading = panel.querySelector(".it-loading");
+    if (loading) loading.classList.add("hidden");
+  }
+
   function renderOverlay(payload) {
     ensureUiStyles();
     const panel = ensurePanelShell();
+    const loading = panel.querySelector(".it-loading");
+    const body = panel.querySelector(".it-body");
+    if (loading) loading.classList.add("hidden");
+    if (body) body.classList.remove("hidden");
 
     const followers = normalize(payload.followers);
     const following = normalize(payload.following);
@@ -244,19 +281,21 @@ function App() {
     );
 
     const privateSet = new Set();
+    const verifiedSet = new Set();
     [...(payload.followersRaw || []), ...(payload.followingRaw || [])].forEach((user) => {
       if (user && user.username && user.is_private) privateSet.add(String(user.username).toLowerCase());
+      if (user && user.username && user.is_verified) verifiedSet.add(String(user.username).toLowerCase());
     });
     const privateUsers = [...privateSet].sort((a, b) => a.localeCompare(b));
+    const verifiedUsers = [...verifiedSet].sort((a, b) => a.localeCompare(b));
 
     const tabs = [
+      { key: "nonFollowers", label: "Non-followers", list: notFollowBack },
       { key: "followers", label: "Followers", list: followers },
-      { key: "following", label: "Following", list: following },
-      { key: "notFollowBack", label: "No Back", list: notFollowBack },
+      { key: "verified", label: "Verified", list: verifiedUsers },
       { key: "private", label: "Private", list: privateUsers },
     ];
 
-    const statsEl = panel.querySelector(".it-stats");
     const tabsEl = panel.querySelector(".it-tabs");
     const searchEl = panel.querySelector(".it-search");
     const actionsEl = panel.querySelector(".it-actions");
@@ -268,13 +307,7 @@ function App() {
     let isUnfollowing = false;
     let searchRaf = 0;
 
-    statsEl.innerHTML = ""
-      + "<div class='it-stat'><b>" + followers.length + "</b><span>Followers</span></div>"
-      + "<div class='it-stat'><b>" + following.length + "</b><span>Following</span></div>"
-      + "<div class='it-stat'><b>" + notFollowBack.length + "</b><span>No Back</span></div>"
-      + "<div class='it-stat'><b>" + privateUsers.length + "</b><span>Private</span></div>";
-
-    let activeKey = "notFollowBack";
+    let activeKey = "nonFollowers";
 
     function getCsrfToken() {
       const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
@@ -372,7 +405,7 @@ function App() {
       tabs.forEach((tab) => {
         const button = document.createElement("button");
         button.className = "it-tab" + (tab.key === activeKey ? " active" : "");
-        button.textContent = tab.label;
+        button.textContent = tab.label + " (" + tab.list.length + ")";
         button.addEventListener("click", () => {
           activeKey = tab.key;
           renderTabs();
@@ -399,7 +432,7 @@ function App() {
         const item = document.createElement("div");
         item.className = "it-item";
         const isPrivate = privateSet.has(username);
-        const canUnfollow = activeKey === "notFollowBack" && usernameToId.has(username);
+        const canUnfollow = activeKey === "nonFollowers" && usernameToId.has(username);
         const alreadyUnfollowed = unfollowedSet.has(username);
         const checked = selectedSet.has(username) ? " checked" : "";
         if (canUnfollow && !alreadyUnfollowed) {
@@ -412,13 +445,17 @@ function App() {
                 ? "<span class='it-badge'>done</span>"
                 : "<button class='it-mini-btn' data-unfollow='" + username + "' type='button'>Unfollow</button>")
               + "<label class='it-select'><input type='checkbox' data-select='" + username + "'" + checked + " /></label>"
-            + "</span>"
+          + "</span>"
           : "";
         const trailingBadge = isPrivate ? "<span class='it-badge'>private</span>" : "";
-        item.innerHTML = ""
-          + controls
+        const main = ""
+          + "<span class='it-main'>"
           + "<a href='https://www.instagram.com/" + username + "/' target='_blank' rel='noreferrer'>@" + username + "</a>"
-          + trailingBadge;
+          + trailingBadge
+          + "</span>";
+        item.innerHTML = ""
+          + main
+          + controls;
         fragment.appendChild(item);
       });
       listEl.appendChild(fragment);
@@ -481,7 +518,7 @@ function App() {
     }
 
     function renderActions() {
-      if (activeKey !== "notFollowBack") {
+      if (activeKey !== "nonFollowers") {
         actionsEl.innerHTML = "";
         return;
       }
@@ -572,10 +609,12 @@ function App() {
     throw new Error(type + " request failed after retries: " + (lastError?.message || "unknown"));
   }
 
-  async function fetchAll(type) {
+  async function fetchAll(type, phaseStart, phaseEnd) {
     const allUsers = [];
     let maxId = null;
     let cycle = 0;
+    let page = 0;
+    let fetchedCount = 0;
 
     while (true) {
       const params = new URLSearchParams({
@@ -587,7 +626,17 @@ function App() {
       const data = await fetchPage(type, params);
       const users = Array.isArray(data.users) ? data.users : [];
       allUsers.push(...users);
+      fetchedCount += users.length;
+      page += 1;
       maxId = data.next_max_id || null;
+      const hasMore = Boolean(maxId);
+      const progress = hasMore
+        ? Math.min(phaseEnd - 2, phaseStart + page * 6)
+        : phaseEnd;
+      setFetchProgress(
+        progress,
+        "Fetching " + type + " • " + fetchedCount + " users loaded",
+      );
       if (!maxId) break;
 
       cycle += 1;
@@ -600,9 +649,12 @@ function App() {
     return allUsers;
   }
 
-  const followersRaw = await fetchAll("followers");
+  setFetchProgress(3, "Starting Instagram fetch...");
+  const followersRaw = await fetchAll("followers", 5, 49);
   await sleep(searchCycleDelayMs);
-  const followingRaw = await fetchAll("following");
+  setFetchProgress(51, "Followers done. Fetching following...");
+  const followingRaw = await fetchAll("following", 53, 98);
+  setFetchProgress(100, "Completed. Rendering overlay...");
 
   const payload = {
     account: window._sharedData?.config?.viewer?.username || "logged in user",
@@ -617,6 +669,7 @@ function App() {
   };
 
   renderOverlay(payload);
+  setTimeout(removeFetchProgress, 1200);
   console.log("iTrace payload:", payload);
   console.log("iTrace payload JSON:", JSON.stringify(payload, null, 2));
   if (typeof copy === "function") copy(JSON.stringify(payload, null, 2));
