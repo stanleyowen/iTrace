@@ -208,6 +208,10 @@ function App() {
       "#" + panelId + " .itp-fill{height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,#c084fc,#818cf8);",
       "box-shadow:0 0 14px rgba(192,132,252,.45);transition:width .28s ease}",
       "#" + panelId + " .itp-text{margin-top:8px;font-size:11px;color:#cbd5e1}",
+      "#" + panelId + " .it-head-actions{display:flex;align-items:center;gap:4px}",
+      "#" + panelId + " .it-refresh{border:0;background:transparent;color:#94a3b8;font-size:17px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:6px;transition:color .15s,background .15s}",
+      "#" + panelId + " .it-refresh:hover{color:#f1f5f9;background:rgba(255,255,255,.1)}",
+      "#" + panelId + " .it-refresh:disabled{opacity:.35;cursor:not-allowed}",
     ].join("");
     document.head.appendChild(style);
   }
@@ -221,7 +225,10 @@ function App() {
     panel.innerHTML = ""
       + "<div class='it-head'>"
       + "  <div class='it-title'>iTrace Overlay</div>"
-      + "  <button class='it-close' title='Close'>✕</button>"
+      + "  <div class='it-head-actions'>"
+      + "    <button class='it-refresh' title='Refresh data'>↺</button>"
+      + "    <button class='it-close' title='Close'>✕</button>"
+      + "  </div>"
       + "</div>"
       + "<div class='it-loading'>"
       + "  <div class='itp-track'><div class='itp-fill'></div></div>"
@@ -237,6 +244,7 @@ function App() {
       + "</div>";
 
     panel.querySelector(".it-close").addEventListener("click", () => panel.remove());
+    panel.querySelector(".it-refresh").addEventListener("click", () => doFetch());
     document.body.appendChild(panel);
     return panel;
   }
@@ -649,31 +657,55 @@ function App() {
     return allUsers;
   }
 
-  setFetchProgress(3, "Starting Instagram fetch...");
-  const followersRaw = await fetchAll("followers", 5, 49);
-  await sleep(searchCycleDelayMs);
-  setFetchProgress(51, "Followers done. Fetching following...");
-  const followingRaw = await fetchAll("following", 53, 98);
-  setFetchProgress(100, "Completed. Rendering overlay...");
+  async function doFetch() {
+    ensureUiStyles();
+    const panel = ensurePanelShell();
+    const refreshBtn = panel.querySelector(".it-refresh");
+    const body = panel.querySelector(".it-body");
+    if (refreshBtn) refreshBtn.disabled = true;
+    if (body) {
+      body.innerHTML =
+        "<div class='it-stats'></div>" +
+        "<div class='it-tabs'></div>" +
+        "<input class='it-search' placeholder='Search username...' />" +
+        "<div class='it-actions'></div>" +
+        "<div class='it-list'></div>" +
+        "<div class='it-footer'></div>";
+      body.classList.add("hidden");
+    }
 
-  const payload = {
-    account: window._sharedData?.config?.viewer?.username || "logged in user",
-    delayMs: searchCycleDelayMs,
-    pauseAfterFiveCyclesMs: searchPauseAfterFiveMs,
-    unfollowDelayMs,
-    unfollowPauseAfterFiveMs,
-    followers: normalize(followersRaw.map((u) => u.username)),
-    following: normalize(followingRaw.map((u) => u.username)),
-    followersRaw,
-    followingRaw,
-  };
+    try {
+      setFetchProgress(3, "Starting Instagram fetch...");
+      const followersRaw = await fetchAll("followers", 5, 49);
+      await sleep(searchCycleDelayMs);
+      setFetchProgress(51, "Followers done. Fetching following...");
+      const followingRaw = await fetchAll("following", 53, 98);
+      setFetchProgress(100, "Completed. Rendering overlay...");
 
-  renderOverlay(payload);
-  setTimeout(removeFetchProgress, 1200);
-  console.log("iTrace payload:", payload);
-  console.log("iTrace payload JSON:", JSON.stringify(payload, null, 2));
-  if (typeof copy === "function") copy(JSON.stringify(payload, null, 2));
-  return payload;
+      const payload = {
+        account: window._sharedData?.config?.viewer?.username || "logged in user",
+        delayMs: searchCycleDelayMs,
+        pauseAfterFiveCyclesMs: searchPauseAfterFiveMs,
+        unfollowDelayMs,
+        unfollowPauseAfterFiveMs,
+        followers: normalize(followersRaw.map((u) => u.username)),
+        following: normalize(followingRaw.map((u) => u.username)),
+        followersRaw,
+        followingRaw,
+      };
+
+      renderOverlay(payload);
+      setTimeout(removeFetchProgress, 1200);
+      console.log("iTrace payload:", payload);
+      console.log("iTrace payload JSON:", JSON.stringify(payload, null, 2));
+      if (typeof copy === "function") copy(JSON.stringify(payload, null, 2));
+      return payload;
+    } finally {
+      if (refreshBtn) refreshBtn.disabled = false;
+    }
+  }
+
+  return await doFetch();
 })();`
   }, [onlineDelayMs, onlinePauseAfterFiveMs, unfollowDelayMs, unfollowPauseAfterFiveMs])
 
