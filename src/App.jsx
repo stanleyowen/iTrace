@@ -904,8 +904,21 @@ function App() {
           </label>
 
           <ol className="steps">
-            <li>Open instagram.com and log in.</li>
-            <li>Open DevTools Console.</li>
+            <li>
+              Open{' '}
+              <a href="https://www.instagram.com/" target="_blank" rel="noreferrer">
+                instagram.com
+              </a>{' '}
+              and log in.
+            </li>
+            <li>
+              Open DevTools Console —{' '}
+              <span className="devtools-hint">
+                press <kbd>F12</kbd> or <kbd>Ctrl+Shift+J</kbd> (Windows/Linux) /{' '}
+                <kbd>⌘+Option+J</kbd> (Mac), or right-click anywhere on the page and choose{' '}
+                <strong>Inspect</strong>, then click the <strong>Console</strong> tab.
+              </span>
+            </li>
             <li>Copy and run this script to inject the iTrace overlay.</li>
             <li>Use the injected UI directly for search, selection, and unfollow.</li>
           </ol>
