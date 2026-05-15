@@ -83,10 +83,10 @@ function App() {
   const [mode, setMode] = useState('online')
   const [followingFile, setFollowingFile] = useState(null)
   const [followersFile, setFollowersFile] = useState(null)
-  const [onlineDelayMs, setOnlineDelayMs] = useState('1500')
-  const [onlinePauseAfterFiveMs, setOnlinePauseAfterFiveMs] = useState('10000')
-  const [unfollowDelayMs, setUnfollowDelayMs] = useState('4000')
-  const [unfollowPauseAfterFiveMs, setUnfollowPauseAfterFiveMs] = useState('30000')
+  const [onlineDelayMs, setOnlineDelayMs] = useState('600')
+  const [onlinePauseAfterFiveMs, setOnlinePauseAfterFiveMs] = useState('3000')
+  const [unfollowDelayMs, setUnfollowDelayMs] = useState('3000')
+  const [unfollowPauseAfterFiveMs, setUnfollowPauseAfterFiveMs] = useState('15000')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -130,9 +130,9 @@ function App() {
 
   const onlineScript = useMemo(() => {
     const rawDelay = Number(onlineDelayMs)
-    const safeDelay = Number.isFinite(rawDelay) ? Math.max(800, Math.floor(rawDelay)) : 1500
+    const safeDelay = Number.isFinite(rawDelay) ? Math.max(500, Math.floor(rawDelay)) : 600
     const rawPause = Number(onlinePauseAfterFiveMs)
-    const safePause = Number.isFinite(rawPause) ? Math.max(0, Math.floor(rawPause)) : 10000
+    const safePause = Number.isFinite(rawPause) ? Math.max(0, Math.floor(rawPause)) : 3000
     const rawUnfollowDelay = Number(unfollowDelayMs)
     const safeUnfollowDelay = Number.isFinite(rawUnfollowDelay)
       ? Math.max(1000, Math.floor(rawUnfollowDelay))
@@ -881,26 +881,27 @@ function App() {
           <div className="section-head">
             <h2>Instagram web console mode</h2>
             <p>
-              Run a throttled script in Instagram console to fetch all followers/following,
-              then inject a modern overlay UI directly on Instagram (including multi-select
-              unfollow controls). Delay settings here apply before running the script.
+              Fetches your followers and following via Instagram's internal API, then injects
+              a live overlay UI with search and bulk unfollow. Defaults are tuned for the
+              fastest safe speed — fetch delays are low-risk read ops, unfollow delays are
+              kept conservative to avoid action blocks.
             </p>
           </div>
 
           <label className="file-field">
-            <span>Default time between search cycles</span>
+            <span>Delay between fetch pages</span>
             <input
               type="number"
-              min="800"
+              min="500"
               step="100"
               value={onlineDelayMs}
               onChange={(event) => setOnlineDelayMs(event.target.value)}
             />
-            <small>(ms)</small>
+            <small>ms — read-only op, safe down to 500ms. Default 600ms.</small>
           </label>
 
           <label className="file-field">
-            <span>Default time to wait after five search cycles</span>
+            <span>Cooldown after every 5 fetch pages</span>
             <input
               type="number"
               min="0"
@@ -908,11 +909,11 @@ function App() {
               value={onlinePauseAfterFiveMs}
               onChange={(event) => setOnlinePauseAfterFiveMs(event.target.value)}
             />
-            <small>(ms)</small>
+            <small>ms — brief breather to avoid bursting. Default 3000ms.</small>
           </label>
 
           <label className="file-field">
-            <span>Default time between unfollows</span>
+            <span>Delay between unfollows</span>
             <input
               type="number"
               min="1000"
@@ -920,11 +921,11 @@ function App() {
               value={unfollowDelayMs}
               onChange={(event) => setUnfollowDelayMs(event.target.value)}
             />
-            <small>(ms)</small>
+            <small>ms — write op, keep above 2500ms to avoid action blocks. Default 3000ms.</small>
           </label>
 
           <label className="file-field">
-            <span>Default time to wait after five unfollows</span>
+            <span>Cooldown after every 5 unfollows</span>
             <input
               type="number"
               min="0"
@@ -932,7 +933,7 @@ function App() {
               value={unfollowPauseAfterFiveMs}
               onChange={(event) => setUnfollowPauseAfterFiveMs(event.target.value)}
             />
-            <small>(ms)</small>
+            <small>ms — longer pause reduces ban risk on bulk unfollows. Default 15000ms.</small>
           </label>
 
           <ol className="steps">
