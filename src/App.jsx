@@ -85,8 +85,10 @@ function App() {
   const [followersFile, setFollowersFile] = useState(null)
   const [onlineDelayMs, setOnlineDelayMs] = useState('600')
   const [onlinePauseAfterFiveMs, setOnlinePauseAfterFiveMs] = useState('3000')
+  const [onlineJitterMs, setOnlineJitterMs] = useState('400')
   const [unfollowDelayMs, setUnfollowDelayMs] = useState('3000')
   const [unfollowPauseAfterFiveMs, setUnfollowPauseAfterFiveMs] = useState('15000')
+  const [unfollowJitterMs, setUnfollowJitterMs] = useState('1500')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -141,13 +143,20 @@ function App() {
     const safeUnfollowPause = Number.isFinite(rawUnfollowPause)
       ? Math.max(0, Math.floor(rawUnfollowPause))
       : 30000
+    const rawSearchJitter = Number(onlineJitterMs)
+    const safeSearchJitter = Number.isFinite(rawSearchJitter) ? Math.max(0, Math.floor(rawSearchJitter)) : 400
+    const rawUnfollowJitter = Number(unfollowJitterMs)
+    const safeUnfollowJitter = Number.isFinite(rawUnfollowJitter) ? Math.max(0, Math.floor(rawUnfollowJitter)) : 1500
 
     return `(async () => {
   const searchCycleDelayMs = ${safeDelay};
   const searchPauseAfterFiveMs = ${safePause};
+  const searchJitterMs = ${safeSearchJitter};
   const unfollowDelayMs = ${safeUnfollowDelay};
   const unfollowPauseAfterFiveMs = ${safeUnfollowPause};
+  const unfollowJitterMs = ${safeUnfollowJitter};
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const jitter = (max) => max > 0 ? Math.floor(Math.random() * max) : 0;
   const appId = "936619743392459";
   const headers = { "x-ig-app-id": appId };
   const pageCount = 25;
@@ -385,9 +394,9 @@ function App() {
           "@" + payload.account + " • unfollow progress " + completed + "/" + queue.length;
 
         if (completed < queue.length) {
-          await sleep(unfollowDelayMs);
+          await sleep(unfollowDelayMs + jitter(unfollowJitterMs));
           if (completed % 5 === 0 && unfollowPauseAfterFiveMs > 0) {
-            await sleep(unfollowPauseAfterFiveMs);
+            await sleep(unfollowPauseAfterFiveMs + jitter(unfollowJitterMs));
           }
         }
       }
@@ -648,9 +657,9 @@ function App() {
       if (!maxId) break;
 
       cycle += 1;
-      await sleep(searchCycleDelayMs);
+      await sleep(searchCycleDelayMs + jitter(searchJitterMs));
       if (cycle % 5 === 0 && searchPauseAfterFiveMs > 0) {
-        await sleep(searchPauseAfterFiveMs);
+        await sleep(searchPauseAfterFiveMs + jitter(searchJitterMs));
       }
     }
 
@@ -677,7 +686,7 @@ function App() {
     try {
       setFetchProgress(3, "Starting Instagram fetch...");
       const followersRaw = await fetchAll("followers", 5, 49);
-      await sleep(searchCycleDelayMs);
+      await sleep(searchCycleDelayMs + jitter(searchJitterMs));
       setFetchProgress(51, "Followers done. Fetching following...");
       const followingRaw = await fetchAll("following", 53, 98);
       setFetchProgress(100, "Completed. Rendering overlay...");
@@ -707,7 +716,7 @@ function App() {
 
   return await doFetch();
 })();`
-  }, [onlineDelayMs, onlinePauseAfterFiveMs, unfollowDelayMs, unfollowPauseAfterFiveMs])
+  }, [onlineDelayMs, onlinePauseAfterFiveMs, onlineJitterMs, unfollowDelayMs, unfollowPauseAfterFiveMs, unfollowJitterMs])
 
   function markVisited(username) {
     setVisitedUsernames((current) => {
@@ -913,6 +922,18 @@ function App() {
           </label>
 
           <label className="file-field">
+            <span>Fetch random jitter</span>
+            <input
+              type="number"
+              min="0"
+              step="100"
+              value={onlineJitterMs}
+              onChange={(event) => setOnlineJitterMs(event.target.value)}
+            />
+            <small>ms — adds 0–N ms randomly to each fetch delay to break the fixed pattern. Default 400ms.</small>
+          </label>
+
+          <label className="file-field">
             <span>Delay between unfollows</span>
             <input
               type="number"
@@ -934,6 +955,18 @@ function App() {
               onChange={(event) => setUnfollowPauseAfterFiveMs(event.target.value)}
             />
             <small>ms — longer pause reduces ban risk on bulk unfollows. Default 15000ms.</small>
+          </label>
+
+          <label className="file-field">
+            <span>Unfollow random jitter</span>
+            <input
+              type="number"
+              min="0"
+              step="250"
+              value={unfollowJitterMs}
+              onChange={(event) => setUnfollowJitterMs(event.target.value)}
+            />
+            <small>ms — adds 0–N ms randomly to each unfollow delay. Default 1500ms.</small>
           </label>
 
           <ol className="steps">
